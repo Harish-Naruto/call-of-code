@@ -28,6 +28,9 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          target: builder
           push: ${{ github.event_name == 'push' }}
           tags: callofcode07/callofcode:latest
-
+      # change this if using this for production
+          build-args: |
+            API_BASE_URL=http://coc-api:3000 

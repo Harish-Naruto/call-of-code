@@ -25,16 +25,27 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Create a non-root group and user to run the application securely
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser  --system --uid 1001 --ingroup nodejs nextjs
+
 # Next.js standalone output (enable in next.config if needed)
 # COPY --from=builder /app/.next/standalone ./
 # COPY --from=builder /app/.next/static ./.next/static
 # COPY --from=builder /app/public ./public
 
 # Standard (non-standalone) output
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+# node_modules sourced from deps stage; .next artefacts from builder
+COPY --from=builder  /app/public       ./public
+COPY --from=builder  /app/.next        ./.next
+COPY --from=deps     /app/node_modules ./node_modules
+COPY --from=builder  /app/package.json ./package.json
+
+# Transfer ownership of the working directory to the non-root user
+RUN chown -R nextjs:nodejs /app
+
+# Drop privileges — never run production containers as root
+USER nextjs
 
 EXPOSE 3001
 
