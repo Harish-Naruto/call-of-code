@@ -1,0 +1,63 @@
+
+services:
+
+  coc-api:
+    image: callofcode07/coc-api:latest
+    pull_policy: missing          # pull only if not already present locally
+    ports:
+      - "3000:3000"
+    env_file:
+      - docker/.env.local.coc-api
+    environment:
+      - NODE_ENV=development
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder          # use the builder stage for dev (keeps dev deps)
+      args:
+        API_BASE_URL: ${API_BASE_URL:-http://coc-api:3000}
+    image: coc-frontend:dev
+    ports:
+      - "3001:3001"
+    env_file:
+      - docker/.env.local.frontend
+    environment:
+      - NODE_ENV=development
+      - API_BASE_URL=http://coc-api:3000
+    depends_on:
+      coc-api:
+        condition: service_healthy
+    restart: unless-stopped
+    # Hot-reload via `docker compose up --watch`
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+        - action: sync
+          path: ./components
+          target: /app/components
+        - action: sync
+          path: ./lib
+          target: /app/lib
+        - action: sync
+          path: ./public
+          target: /app/public
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: package-lock.json
+    command: ["npm", "run", "dev"]
+
+networks:
+  default:
+    name: coc-local
